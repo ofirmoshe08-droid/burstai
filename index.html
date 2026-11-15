@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BurstAI – הדגמה אינטראקטיבית</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Direction: calm technical control room. Teal accent, ink navy text, cool grey ground.
+   Layout: single column of numbered stages; the live run is a two-column pipeline + architecture. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --ink:#14212b; --muted:#566673; --line:#d9e1e7;
+  --accent:#0a7c78; --accent-ink:#ffffff; --accent-soft:#dff3f1;
+  --good:#1a7f4b; --good-soft:#e1f4ea; --warn:#9a5a00; --warn-soft:#fdf0d9; --crit:#b3261e; --crit-soft:#fbe4e2;
+  --code-bg:#eef2f5; --shadow:0 1px 2px rgba(20,33,43,.06),0 4px 14px rgba(20,33,43,.05);
+  --font:"Heebo",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1419; --surface:#151e25; --ink:#e6edf2; --muted:#93a3b0; --line:#26333d;
+    --accent:#3cc4bd; --accent-ink:#06201f; --accent-soft:#12302f;
+    --good:#52c98a; --good-soft:#12301f; --warn:#e3a443; --warn-soft:#33260e; --crit:#ff8a80; --crit-soft:#3a1816;
+    --code-bg:#1b2730; --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1419; --surface:#151e25; --ink:#e6edf2; --muted:#93a3b0; --line:#26333d;
+  --accent:#3cc4bd; --accent-ink:#06201f; --accent-soft:#12302f;
+  --good:#52c98a; --good-soft:#12301f; --warn:#e3a443; --warn-soft:#33260e; --crit:#ff8a80; --crit-soft:#3a1816;
+  --code-bg:#1b2730; --shadow:none; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.6}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.25}
+p{margin:0}
+a{color:var(--accent)}
+code,.mono{font-family:var(--mono);direction:ltr;unicode-bidi:isolate;font-size:.88em}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* header */
+.top{background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding-top:14px;padding-bottom:14px}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand b{font-size:19px;font-weight:800;letter-spacing:.2px;direction:ltr;text-align:right}
+.brand span{color:var(--muted);font-size:14px}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav a{color:var(--ink);text-decoration:none;padding:6px 12px;border-radius:999px;font-size:14px;font-weight:500}
+.nav a:hover{background:var(--accent-soft)}
+.banner{background:var(--warn-soft);color:var(--ink);border-bottom:1px solid var(--line)}
+.banner .wrap{padding-top:10px;padding-bottom:10px;display:flex;gap:10px;align-items:flex-start;font-size:14.5px}
+.tag{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--warn);color:var(--surface);white-space:nowrap;margin-top:1px}
+
+/* hero */
+.hero{padding:34px 0 10px}
+.hero h1{font-size:clamp(26px,4.2vw,40px);font-weight:800}
+.hero p.lead{max-width:62ch;margin-top:12px;font-size:18px;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:22px}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.fact b{display:block;font-size:15px}
+.fact span{color:var(--muted);font-size:14px}
+
+/* sections */
+section{padding:26px 0}
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.sec-head .n{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500}
+.sec-head h2{font-size:24px}
+.sec-head p{color:var(--muted);font-size:15px}
+@media (max-width:700px){.sec-head{flex-wrap:wrap;row-gap:2px}.sec-head p{flex-basis:100%}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.run-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px}
+.grid-res{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.grid2,.grid-res{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:1000px){.run-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* form */
+.form{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px}
+@media (max-width:860px){.form{grid-template-columns:minmax(0,1fr)}}
+label.l,.l{display:block;font-weight:700;font-size:14px;margin:0 0 6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 12px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+textarea{width:100%;min-height:210px;resize:vertical;font:inherit;font-size:15px;line-height:1.55;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
+.meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin-top:6px}
+.opts{display:grid;gap:14px;align-content:start}
+.radio{display:grid;gap:8px}
+.radio label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;background:var(--surface)}
+.radio input{margin-top:5px;accent-color:var(--accent)}
+.radio label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.radio b{display:block;font-size:15px}
+.radio small{color:var(--muted);font-size:13px}
+select,input[type=range]{font:inherit;width:100%}
+input[type=range]{accent-color:var(--accent)}
+select{padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.switch{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
+.switch input{margin-top:5px;accent-color:var(--accent)}
+.switch small{display:block;color:var(--muted);font-size:13px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
+.btn{font:inherit;font-weight:700;border-radius:10px;border:1px solid var(--accent);padding:11px 22px;cursor:pointer;background:var(--accent);color:var(--accent-ink);font-size:16px}
+.btn:hover{filter:brightness(1.06)}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent)}
+.hint{color:var(--muted);font-size:14px}
+
+/* run */
+.run-top{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.clock{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline}
+.clock b{font-family:var(--mono);font-size:26px;direction:ltr;display:inline-block;min-width:3.6ch}
+.clock small{color:var(--muted);display:block;font-size:12.5px}
+.speed{display:flex;align-items:center;gap:8px;font-size:14px}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.step{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.step .dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--muted);font-family:var(--mono)}
+.step h3{font-size:15.5px;font-weight:700}
+.step p{font-size:13.5px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.step .tm{font-family:var(--mono);font-size:12.5px;color:var(--muted);direction:ltr;padding-top:3px}
+.step.active{border-color:var(--accent);background:var(--accent-soft)}
+.step.active .dot{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.step.active p{color:var(--ink)}
+.step.done .dot{border-color:var(--good);background:var(--good);color:var(--surface)}
+.step.wait h3{color:var(--muted)}
+.bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .08s linear}
+
+.diagram{overflow-x:auto}
+.diagram svg{display:block;min-width:560px;width:100%;height:auto}
+.nd rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5;transition:fill .2s,stroke .2s}
+.nd text{fill:var(--ink);font-family:var(--font);font-size:15px;font-weight:500;text-anchor:middle}
+.nd text.s{fill:var(--muted);font-size:12px;font-weight:400}
+.nd.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5}
+.nd.off rect{stroke-dasharray:5 4;fill:var(--bg)}
+.nd.off text{fill:var(--muted)}
+.nd.gone rect{stroke-dasharray:5 4;fill:var(--bg);stroke:var(--muted)}
+.nd.gone text{fill:var(--muted);text-decoration:line-through}
+.vpcbox{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:6 4;transition:stroke .2s}
+.vpcbox.on{stroke:var(--accent);stroke-width:2.2}
+.vpcbox.gone{stroke:var(--line)}
+.vpclabel{fill:var(--muted);font-size:13px;font-family:var(--font)}
+.edge{stroke:var(--muted);stroke-width:1.4;fill:none}
+.edge.dash{stroke-dasharray:4 4}
+.elabel{fill:var(--muted);font-size:12px;font-family:var(--font);text-anchor:middle}
+
+.res{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;margin-top:10px}
+.rs{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12.5px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.rs code{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:99px;white-space:nowrap}
+.p-waiting{background:var(--code-bg);color:var(--muted)}
+.p-creating{background:var(--warn-soft);color:var(--warn)}
+.p-active{background:var(--good-soft);color:var(--good)}
+.p-deleting{background:var(--crit-soft);color:var(--crit)}
+.p-deleted{background:var(--code-bg);color:var(--muted)}
+
+/* results */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:-4px 0 14px;overflow-x:auto}
+.tabs button{font:inherit;font-size:14.5px;font-weight:500;border:0;background:none;color:var(--muted);padding:9px 14px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+.panel[hidden]{display:none}
+.out h4{font-size:14px;margin:14px 0 6px;color:var(--muted);font-weight:700}
+.out h4:first-child{margin-top:0}
+.out .txt{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kw{display:flex;gap:6px;flex-wrap:wrap}
+.kw span{background:var(--accent-soft);border-radius:99px;padding:3px 11px;font-size:14px}
+.kw b{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400;margin-inline-start:6px}
+.sent{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.sent .big{font-size:20px;font-weight:800}
+.sbar{flex:1;min-width:180px;height:10px;border-radius:99px;background:var(--crit-soft);overflow:hidden}
+.sbar i{display:block;height:100%;background:var(--good)}
+.mask{background:var(--warn-soft);color:var(--warn);border-radius:5px;padding:0 5px;font-weight:700;font-size:.92em}
+.note{font-size:13.5px;color:var(--muted);border-inline-start:3px solid var(--line);padding:2px 12px;margin-top:12px}
+.placeholder{color:var(--muted);padding:24px 8px;text-align:center}
+pre{margin:0;background:var(--code-bg);border-radius:10px;padding:12px;overflow:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55;direction:ltr;text-align:left}
+.jl{font-size:13px;font-weight:700;margin:12px 0 6px}
+.jl:first-child{margin-top:0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:start;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12.5px;color:var(--muted);font-weight:700}
+.tw{overflow-x:auto}
+.cost{display:grid;gap:6px}
+.cost .row{display:flex;justify-content:space-between;gap:12px;font-size:14.5px}
+.cost .row span:first-child{color:var(--muted)}
+.cost .tot{border-top:1px solid var(--line);padding-top:8px;margin-top:4px;font-weight:800;font-size:19px}
+.num{font-family:var(--mono);direction:ltr;unicode-bidi:isolate}
+.tot .num{color:var(--accent)}
+
+/* calc */
+.calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:18px}
+@media (max-width:860px){.calc{grid-template-columns:minmax(0,1fr)}}
+.field{margin-bottom:16px}
+.field .v{float:left;font-family:var(--mono);font-weight:500;color:var(--accent)}
+.verdict{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+.verdict.good{background:var(--good-soft)}
+.verdict.warn{background:var(--warn-soft)}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.kpi small{display:block;color:var(--muted);font-size:12.5px}
+.kpi b{font-family:var(--mono);font-size:17px;direction:ltr;display:inline-block}
+@media (max-width:520px){.kpis{grid-template-columns:minmax(0,1fr)}}
+.chart svg{width:100%;height:auto;display:block}
+.chart text{font-family:var(--font);fill:var(--muted);font-size:11px}
+.chart .l1{stroke:var(--accent);stroke-width:2.6;fill:none}
+.chart .l2{stroke:var(--warn);stroke-width:2.6;fill:none}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;margin-top:6px}
+.legend i{display:inline-block;width:18px;height:4px;border-radius:2px;margin-inline-end:6px;vertical-align:middle}
+
+.limits{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.limits .card h3{font-size:16px;margin-bottom:6px}
+.limits .card p{font-size:14.5px;color:var(--muted)}
+footer{padding:28px 0 48px;color:var(--muted);font-size:13.5px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+/* added: project overview, security, status */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat b{display:block;font-family:var(--mono);font-size:28px;font-weight:500;color:var(--accent);direction:ltr;text-align:right}
+.stat span{display:block;font-size:14.5px}
+.stat small{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
+.flow{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;counter-reset:f}
+.flow li{counter-increment:f;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:14.5px}
+.flow li::before{content:counter(f);display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:13px;margin-bottom:8px;font-family:var(--mono)}
+.flow b{display:block;font-size:15.5px;margin-bottom:2px}
+.list{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.list li{position:relative;padding-inline-start:22px;font-size:14.5px}
+.list li::before{content:"";position:absolute;inset-inline-start:4px;top:.6em;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.card h3.t{font-size:17px;margin-bottom:10px}
+.ok{color:var(--good);font-weight:700}
+.todo{color:var(--warn);font-weight:700}
+.region-note{color:var(--muted);font-size:12.5px;margin-top:5px}
+.src{color:var(--muted);font-size:12.5px;margin-top:10px}
+</style>
+<meta name="description" content="BurstAI (Inference as a Service): שרת AI שנבנה בענן לעבודה אחת ונמחק בסופה. הדגמה אינטראקטיבית של הפרויקט.">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>BurstAI</b><span>Inference as a Service: הדגמה אינטראקטיבית של הפרויקט</span></div>
+    <nav class="nav" aria-label="ניווט">
+      <a href="#about">על הפרויקט</a><a href="#demo">הדגמה</a><a href="#cost">מחשבון עלות</a><a href="#security">אבטחה</a><a href="#status">מה קיים היום</a>
+    </nav>
+  </div>
+</header>
+<div class="banner" role="note">
+  <div class="wrap"><span class="tag">הדגמה מדומה</span>
+  <span>האתר רץ כולו בדפדפן, הוא לא מחובר ל-AWS ולא יוצר שרתים. הזרימה, שמות הסטטוסים, פורמט ה-API והעלויות לקוחים ממסמך הפרויקט ומקוד ה-PoC.</span></div>
+</div>
+
+<main>
+<div class="wrap">
+
+<div class="hero">
+  <h1>שרת AI שנבנה לעבודה אחת, ואז נמחק</h1>
+  <p class="lead">המשתמש שולח קובץ ובוחר מה לעשות איתו. מודל AI בוחר את השרת הזול שיספיק, המערכת בונה לו רשת פרטית בחשבון ה-AWS של הארגון, מעבדת את הקובץ ומוחקת הכול. משלמים רק על הדקות שהשרת חי.</p>
+  <div class="facts">
+    <div class="fact"><b>אין שרת שעומד בטל</b><span>הסביבה קיימת רק בזמן העבודה</span></div>
+    <div class="fact"><b>המידע נשאר אצל הארגון</b><span>הכול רץ בחשבון ה-AWS שלו</span></div>
+    <div class="fact"><b>בחירת השרת אוטומטית</b><span>Bedrock בוחר, ורשימה לבנה בודקת את הבחירה</span></div>
+  </div>
+</div>
+
+<section id="about" aria-labelledby="h-about">
+  <div class="sec-head"><span class="n">01</span><h2 id="h-about">הבעיה והפתרון</h2><p>למה בנינו את זה, ואיך זה עובד.</p></div>
+  <div class="stats">
+    <div class="stat"><b>29%</b><span>מהוצאות הענן מבוזבזות, והבזבוז עולה בגלל עומסי AI</span><small>Flexera, State of the Cloud 2026</small></div>
+    <div class="stat"><b>~5%</b><span>ניצול GPU ממוצע בארגונים</span><small>Cast AI, מצוטט ב-VentureBeat (מקור משני)</small></div>
+    <div class="stat"><b>$384</b><span>לחודש על שרת g4dn.xlarge דלוק, גם אם עובדים עליו שעתיים ביום</span><small>0.526$ לשעה ב-us-east-1</small></div>
+  </div>
+  <p class="lead" style="margin-top:18px;font-size:16px;color:var(--ink)">הדימוי הפשוט: במקום להחזיק רכב שעומד בחניה רוב היום, מזמינים מונית בדיוק כשצריך, והיא נעלמת בסוף הנסיעה. מודל AI משמש כ"סדרן" שבוחר את גודל הרכב המתאים לכל נסיעה.</p>
+  <ol class="flow">
+    <li><b>שולחים קובץ</b>בוחרים סוג עיבוד: סיכום, ניתוח רגשות או מילות מפתח.</li>
+    <li><b>ה-AI בוחר שרת</b>מודל ב-Amazon Bedrock בוחר את השרת הזול ביותר מתוך רשימה מאושרת.</li>
+    <li><b>נבנית סביבה ומעבדת</b>CloudFormation בונה VPC פרטי ושרת EC2, והשרת מעבד את הקובץ.</li>
+    <li><b>הכול נמחק</b>כשהתוצאה מוכנה התשתית נמחקת, והמשתמש מקבל את התוצאה ואת העלות.</li>
+  </ol>
+  <div class="grid2" style="margin-top:16px">
+    <div class="card">
+      <h3 class="t">למי זה מיועד</h3>
+      <ul class="list">
+        <li>צוותי פיתוח קטנים, סטארט-אפים, חוקרים וסטודנטים שכבר עובדים ב-AWS.</li>
+        <li>מריצים עבודות AI מדי פעם ולא כל הזמן, ואין להם איש DevOps.</li>
+        <li>הנישה בהמשך: ארגונים בישראל עם מידע אישי רגיש, על רקע תיקון 13 לחוק הגנת הפרטיות ו-Bedrock באזור תל אביב.</li>
+        <li>לא מיועד לצ'אט בזמן אמת, כי הקמת הסביבה לוקחת כמה דקות.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 class="t">מה החידוש</h3>
+      <ul class="list">
+        <li>מודל AI בוחר את סוג השרת במקום המשתמש. אצל המתחרים המשתמש בוחר בעצמו.</li>
+        <li>לכל עבודה יש VPC משלה, והשרת בתת-רשת פרטית בלי כניסה מבחוץ.</li>
+        <li>הכול רץ בחשבון ה-AWS של הלקוח, ולא בענן של ספק חיצוני.</li>
+        <li>כל עבודה מחזירה את המשך ואת העלות המשוערת שלה.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="demo" aria-labelledby="h-send">
+  <div class="sec-head"><span class="n">02</span><h2 id="h-send">שלח עבודה</h2><p>בחר טקסט, סוג עיבוד וגודל קובץ, ולחץ על הרצה.</p></div>
+  <div class="card">
+    <div class="form">
+      <div>
+        <span class="l" id="l-sample">טקסט לדוגמה</span>
+        <div class="seg" id="samples" role="group" aria-labelledby="l-sample"></div>
+        <label class="l" for="txt" style="margin-top:14px">המסמך (אפשר לערוך)</label>
+        <textarea id="txt" spellcheck="false"></textarea>
+        <div class="meta"><span id="size-meta"></span><span>כל המידע בדוגמאות בדוי</span></div>
+      </div>
+      <div class="opts">
+        <div>
+          <span class="l" id="l-type">סוג עיבוד (processing_type)</span>
+          <div class="radio" role="radiogroup" aria-labelledby="l-type" id="types"></div>
+        </div>
+        <div>
+          <label class="l" for="size">גודל הקובץ (מדומה, עד 100MB)</label>
+          <select id="size">
+            <option value="small">0.5MB, קובץ קטן</option>
+            <option value="medium">20MB, קובץ בינוני</option>
+            <option value="large">80MB, קובץ גדול</option>
+          </select>
+        </div>
+        <div>
+          <label class="l" for="region">אזור ההתקנה</label>
+          <select id="region">
+            <option value="us-east-1">us-east-1, צפון וירג'יניה (אזור ה-PoC)</option>
+            <option value="il-central-1">il-central-1, תל אביב (אזור היעד לנישה)</option>
+          </select>
+          <p class="region-note">המחירים בהדגמה לפי us-east-1. בתל אביב עוד צריך לבדוק אילו מודלים זמינים.</p>
+        </div>
+        <label class="switch" for="fail">
+          <input type="checkbox" id="fail">
+          <span><b>דמה כשל של Bedrock</b>
+          <small>כמו בקוד: אם Bedrock נכשל או מחזיר שרת לא מורשה, כללי גיבוי לפי גודל הקובץ בוחרים שרת, והעבודה ממשיכה.</small></span>
+        </label>
+        <label class="switch" for="mask">
+          <input type="checkbox" id="mask">
+          <span><b>התממת מזהים ישראליים</b> <span class="tag" style="background:var(--muted)">תכונה עתידית</span>
+          <small>מסתירה ת.ז. (עם בדיקת ספרת ביקורת), טלפון, אימייל וכתובת לפני העיבוד. בהדגמה שמות לא עוברים התממה.</small></span>
+        </label>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="run" type="button">הרץ הדגמה</button>
+      <span class="hint" id="run-hint">הריצה למטה מציגה את התוצאה הסופית. לחץ כדי לראות אותה שלב אחרי שלב.</span>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-live">
+  <div class="sec-head"><span class="n">03</span><h2 id="h-live">מה קורה עכשיו</h2><p>שמונה שלבים, והתרשים מדגיש את השירותים הפעילים.</p></div>
+  <div class="card">
+    <div class="run-top">
+      <div class="clock">
+        <div><small>זמן אמיתי משוער</small><b id="clk">0:00</b></div>
+        <div><small>עלות עד עכשיו</small><b id="liveCost">$0.000</b></div>
+        <div><small>סטטוס</small><code id="stat">-</code></div>
+        <div><small>מזהה עבודה</small><code id="jobid">-</code></div>
+      </div>
+      <div class="speed"><label for="speed">מהירות ההצגה</label>
+        <select id="speed" style="width:auto"><option value="3000">איטית</option><option value="1500" selected>רגילה</option><option value="500">מהירה</option></select></div>
+    </div>
+    <div class="run-grid">
+      <div>
+        <ol class="steps" id="steps" aria-live="polite"></ol>
+        <div class="bar" aria-hidden="true"><i id="prog"></i></div>
+      </div>
+      <div>
+        <div class="diagram" id="diagram" aria-label="תרשים הארכיטקטורה"></div>
+        <div class="res" id="res" aria-label="משאבי הסטאק הזמני"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-res">
+  <div class="sec-head"><span class="n">04</span><h2 id="h-res">התוצאה ודוח המחיקה</h2><p>מה חזר למשתמש, מה עלתה העבודה ומה נמחק.</p></div>
+  <div class="grid-res">
+    <div class="card">
+      <div class="tabs" role="tablist" aria-label="תוצאה">
+        <button role="tab" id="t-out" aria-selected="true" aria-controls="p-out">פלט העיבוד</button>
+        <button role="tab" id="t-json" aria-selected="false" aria-controls="p-json">קריאות ה-API</button>
+        <button role="tab" id="t-rep" aria-selected="false" aria-controls="p-rep">דוח מחיקה</button>
+      </div>
+      <div class="panel out" id="p-out" role="tabpanel" aria-labelledby="t-out"></div>
+      <div class="panel" id="p-json" role="tabpanel" aria-labelledby="t-json" hidden></div>
+      <div class="panel" id="p-rep" role="tabpanel" aria-labelledby="t-rep" hidden></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:17px;margin-bottom:10px">עלות העבודה</h3>
+      <div class="cost" id="cost"></div>
+      <p class="note" id="cost-note"></p>
+    </div>
+  </div>
+</section>
+
+<section id="cost" aria-labelledby="h-calc">
+  <div class="sec-head"><span class="n">05</span><h2 id="h-calc">מתי שווה לבנות סביבה לכל עבודה?</h2><p>סביבה זמנית לכל עבודה, לעומת שרת שדלוק כל החודש.</p></div>
+  <div class="card calc">
+    <div>
+      <div class="field"><label class="l" for="c-inst">סוג שרת</label>
+        <select id="c-inst">
+          <option value="t3.small">t3.small, השרת מהדוגמה במסמך</option>
+          <option value="t3.medium">t3.medium, מעבד רגיל</option>
+          <option value="c5.xlarge">c5.xlarge, מעבד חזק</option>
+          <option value="g4dn.xlarge">g4dn.xlarge, כרטיס GPU (עתידי)</option>
+        </select></div>
+      <div class="field"><label class="l" for="c-dur">משך עבודה בשרת <span class="v" id="v-dur"></span></label>
+        <input type="range" id="c-dur" min="2" max="120" step="1" value="7"></div>
+      <div class="field"><label class="l" for="c-jobs">עבודות ביום <span class="v" id="v-jobs"></span></label>
+        <input type="range" id="c-jobs" min="1" max="120" step="1" value="2"></div>
+      <label class="switch" for="c-nat" style="margin-bottom:10px">
+        <input type="checkbox" id="c-nat" checked>
+        <span>לשרת הקבוע יש גם NAT Gateway<small>כמו בסביבה שלנו, שבה השרת בתת-רשת פרטית. כבה כדי לראות השוואה זהירה יותר.</small></span>
+      </label>
+      <label class="switch" for="c-ai" style="margin-bottom:10px">
+        <input type="checkbox" id="c-ai" checked>
+        <span>לכלול את עלות ה-AI בשני הצדדים<small>כ-0.017$ לעבודה עם Claude Haiku 4.5. היא זהה בשתי הדרכים, ולכן לא משנה את נקודת האיזון.</small></span>
+      </label>
+      <p class="hint">מחירי On-Demand ב-us-east-1 לשעה: <code>t3.small</code> $0.0208, <code>t3.medium</code> $0.0416, <code>c5.xlarge</code> $0.17, <code>g4dn.xlarge</code> $0.526. כתובת IP $0.005. NAT Gateway $0.045, ו-AWS מחייבת כל שעה חלקית שלו כשעה מלאה.</p>
+    </div>
+    <div>
+      <div class="kpis" id="kpis"></div>
+      <div class="chart" id="chart"></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>סביבה לכל עבודה</span><span><i style="background:var(--warn)"></i>שרת קבוע</span></div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+  </div>
+</section>
+
+<section id="security" aria-labelledby="h-sec">
+  <div class="sec-head"><span class="n">06</span><h2 id="h-sec">אבטחה ורשתות ביטחון</h2><p>איך מונעים גישה מבחוץ, ואיך מונעים שרתים שנשכחו דלוקים.</p></div>
+  <div class="grid2">
+    <div class="card">
+      <h3 class="t">אבטחה</h3>
+      <ul class="list">
+        <li>השרת בתת-רשת פרטית בלי IP ציבורי, וב-Security Group שלו אין אף חוק כניסה.</li>
+        <li>התעבורה ל-S3 עוברת ב-VPC Endpoint ולא דרך האינטרנט.</li>
+        <li>קישור ההעלאה חתום ותקף 15 דקות, וקישור ההורדה תקף שעה.</li>
+        <li>לכל רכיב תפקיד IAM משלו עם הרשאות מינימליות. ה-Lambdas יכולות ליצור ולמחוק רק סטאקים ששמם מתחיל ב-<code>job-</code>.</li>
+        <li>השרת עובד רק עם IMDSv2, והבאקט חסום לגישה ציבורית.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 class="t">שלוש רשתות ביטחון נגד שרתים נשכחים</h3>
+      <ul class="list">
+        <li><b>מחיקה מיידית:</b> כשהתוצאה מגיעה ל-S3, EventBridge מפעיל את Teardown Lambda שמוחקת את הסטאק.</li>
+        <li><b>מטאטא כל 15 דקות:</b> עבודה שרצה יותר מ-60 דקות מסומנת <code>TIMED_OUT</code> והתשתית שלה נמחקת.</li>
+        <li><b>כיבוי עצמי:</b> השרת מכבה את עצמו אחרי 50 דקות במקרה הגרוע, ו-<code>OnFailure=DELETE</code> מוחק סטאק שנכשל בהקמה.</li>
+      </ul>
+      <p class="src">ובנוסף, ה-AI לא יכול להקים שרת יקר בטעות: הקוד מקבל רק שם שרת מהרשימה הלבנה, והתבנית בודקת שוב עם <code>AllowedValues</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="status" aria-labelledby="h-st">
+  <div class="sec-head"><span class="n">07</span><h2 id="h-st">מה קיים היום, ומה ההדגמה לא עושה</h2><p>כדי שיהיה ברור מה אמיתי ומה מדומה.</p></div>
+  <div class="grid2" style="margin-bottom:12px">
+    <div class="card">
+      <h3 class="t">ה-PoC</h3>
+      <ul class="list">
+        <li><span class="ok">קיים:</span> קוד מלא עם שתי תבניות CloudFormation (סטאק קבוע וסטאק זמני לכל עבודה), שלוש Lambdas (Orchestrator, Status, Teardown), <code>worker.py</code>, ממשק Web וסקריפטי <code>deploy.sh</code>, <code>test-job.sh</code> ו-<code>destroy.sh</code>.</li>
+        <li><span class="ok">נבדק:</span> שתי התבניות עברו <code>cfn-lint</code>. בדיקת זרימה מול AWS מדומה (moto) עברה: בחירת שרת, דחיית קלט לא תקין, גיבוי כש-Bedrock נכשל, מניעת הקמה כפולה, מחיקה בסיום והמטאטא.</li>
+        <li><span class="todo">הצעד הבא:</span> הרצה בחשבון AWS אמיתי, 10 עבודות למדידת זמן, עלות וסטאקים שנשארו, וראיונות תיקוף.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 class="t">היעדים שנמדוד בהרצה האמיתית</h3>
+      <div class="tw"><table>
+        <thead><tr><th>מדד</th><th>יעד</th></tr></thead>
+        <tbody>
+          <tr><td>זמן מהעלאה עד תוצאה</td><td>פחות מ-10 דקות</td></tr>
+          <tr><td>עלות לעבודה (שרת, רשת ו-AI)</td><td class="num">&lt; $0.10</td></tr>
+          <tr><td>סטאקים שנשארו אחרי 10 עבודות</td><td class="num">0</td></tr>
+          <tr><td>עבודות שבהן נבחר שרת מהרשימה הלבנה</td><td class="num">100%</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="limits">
+    <div class="card"><h3>היא לא מחוברת ל-AWS</h3><p>לא נוצרים שרתים, ולא נשלחות קריאות ל-Bedrock או ל-CloudFormation. האתר מציג את הזרימה של הקוד, וזמני ההקמה הם הערכה.</p></div>
+    <div class="card"><h3>הפלט אינו של מודל AI</h3><p>הסיכום, הרגש ומילות המפתח מחושבים בדפדפן בכללים פשוטים. במערכת האמיתית העיבוד נעשה ב-Claude Haiku 4.5 דרך Bedrock.</p></div>
+    <div class="card"><h3>ההקמה לוקחת דקות</h3><p>בניית רשת ושרת, ובעיקר ה-NAT, אורכת כמה דקות. לכן המערכת מתאימה לעבודות באצוות ולא לשיחה בזמן אמת.</p></div>
+    <div class="card"><h3>חלק מהתכונות עוד לא נבנו</h3><p>התממת מזהים ישראליים, דוח מחיקה חתום ושכבת הניהול בתשלום מוצגים כדי להמחיש כיוון. הם לא קיימים בקוד.</p></div>
+  </div>
+</section>
+
+</div>
+</main>
+<footer><div class="wrap">BurstAI, פרויקט Inference as a Service. כל הנתונים בדוגמאות בדויים, והמחירים הם הערכות לפי מחירי On-Demand ב-us-east-1.</div></footer>
+
+<script>
+(function(){
+"use strict";
+var $=function(s){return document.querySelector(s)};
+var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+var money=function(n,d){return "$"+n.toFixed(d==null?3:d)};
+
+/* ---------- data (aligned with the project document) ---------- */
+var SAMPLES=[
+ {id:"legal",label:"מכתב ממשרד עו\"ד",file:"legal-letter.txt",text:
+"לכבוד גב' דנה כהן, ת.ז. 123456782\nטלפון: 050-1234567, דוא\"ל: dana.cohen@example.com\nהנדון: דרישה לתשלום שכר דירה שלא שולם, תיק מספר 123456789\nאנו פונים אליך בשם מרשנו, מר אבי לוי, בעניין חוזה השכירות לדירה ברחוב הרצל 15 בתל אביב. עד היום לא שולם שכר הדירה בעבור שלושה חודשים, בסך כולל של 18,000 ש\"ח. מרשנו ניסה ליצור קשר מספר פעמים ולא קיבל מענה. אנו דורשים לשלם את החוב המלא תוך 14 ימים. אם החוב לא ישולם, מרשנו יפנה לבית המשפט ויבקש גם פינוי של הדירה. אנו מעדיפים להגיע להסדר, ולכן מוכנים לשוחח על תשלום בשיעורים. נשמח לתשובתך בהקדם.\nבכבוד רב, עו\"ד מיכל ברק"},
+ {id:"reviews",label:"משוב לקוחות",file:"customer-feedback.txt",text:
+"קיבלתי את החבילה מהר מאוד והשירות היה מצוין. הנציגה הייתה מקצועית ונחמדה.\nהאתר איטי והתשלום נכשל פעמיים. הייתי מאוכזב מאוד מהחוויה.\nמוצר מעולה, מרוצה מאוד מהמחיר ומהאיכות. אמליץ לחברים.\nהמשלוח התעכב שבוע והתקשורת עם השירות הייתה גרועה, אבל בסוף קיבלתי החזר.\nהממשק נוח ופשוט, אבל חסרה אפשרות לשינוי הזמנה. בעיה קטנה בלבד."},
+ {id:"clinic",label:"סיכום ביקור במרפאה",file:"clinic-visit.txt",text:
+"מטופל: יוסי לוי, ת.ז. 318347655, טלפון 052-7654321\nתאריך ביקור: 3.11.2026\nהמטופל התלונן על כאבי גב תחתון שהחלו לפני שבועיים לאחר מאמץ גופני. לא דווח על חום או חולשה בגפיים. בבדיקה נמצאה רגישות באזור המותני וטווח תנועה מוגבל. הומלץ על פיזיותרפיה פעמיים בשבוע במשך חודש, משככי כאבים לפי הצורך ומעקב בעוד ארבעה שבועות. המטופל הסביר שהוא חושש מחזרה של הכאב בעבודה, והוסברו לו תרגילי חיזוק."},
+ {id:"own",label:"טקסט משלי",file:"my-text.txt",text:""}
+];
+var TYPES=[
+ {id:"summarize",label:"סיכום",desc:"במערכת: 5–7 נקודות באותה שפה. בהדגמה: המשפטים המרכזיים."},
+ {id:"sentiment",label:"ניתוח רגשות",desc:"JSON עם סנטימנט, ציון בין 0 ל-1 ונימוק במשפט."},
+ {id:"keywords",label:"מילות מפתח",desc:"רשימת JSON של 10 מילות מפתח."}
+];
+var PRICE={"t3.small":0.0208,"t3.medium":0.0416,"t3.large":0.0832,"c5.xlarge":0.17,"g4dn.xlarge":0.526};
+var WHITELIST=["t3.small","t3.medium","t3.large","c5.xlarge"];
+var IP_HOUR=0.005, NAT_HOUR=0.045, OTHER=0.001;
+var MODEL="us.anthropic.claude-haiku-4-5-20251001-v1:0";
+var SIZES={small:{mb:0.5,inst:"t3.small",proc:0.6},medium:{mb:20,inst:"t3.medium",proc:1.0},large:{mb:80,inst:"t3.large",proc:1.6}};
+var MAXCHARS=50000;
+/* Claude Haiku 4.5 on Bedrock (US): $1.10 / $5.50 per million tokens. Processing: up to 12,500 input + 500 output. Decision: ~300 input. */
+function aiCost(mb){var chars=Math.min(mb*1e6,MAXCHARS);return (chars/4*1.10+500*5.50)/1e6+(300*1.10+5*5.50)/1e6}
+var STEPS=[
+ {t:"המשתמש שולח POST /jobs",n:["user","apigw","orch"]},
+ {t:"Bedrock בוחר סוג שרת",n:["orch","bedrock"]},
+ {t:"העבודה נשמרת וחוזר קישור העלאה",n:["orch","dynamo","apigw","user"]},
+ {t:"הקובץ עולה ישירות ל-S3",n:["user","s3"]},
+ {t:"CloudFormation בונה סביבה לעבודה",n:["s3","eb","orch","cfn","vpc","nat","ec2"]},
+ {t:"השרת מעבד את הקובץ עם Bedrock",n:["ec2","s3","bedrock","nat","vpc"]},
+ {t:"התוצאה עולה ל-S3 ו-Teardown מופעל",n:["ec2","s3","eb","td"]},
+ {t:"הסביבה נמחקת והעבודה הושלמה",n:["td","cfn","vpc","nat","ec2","dynamo"]}
+];
+
+/* ---------- processing (browser heuristics, not an AI model) ---------- */
+var STOP=new Set("של על את עם אל זה זו הוא היא הם הן אני אתה אנחנו כי אם לא כל גם או אבל כמו יש אין היה היו להיות מאוד עוד רק כך לי לנו לכם מן מה מי איך למה בעבור לפני אחרי תוך בסך כולל הזה הזאת ולכן אך כן אז בעוד שלא שהוא שהיא אשר לכבוד הנדון אנו מספר ביום שבוע במשך".split(" "));
+var POS="מצוין מעולה מרוצה תודה נהדר נחמד מהיר מקצועי נוח פשוט אמליץ הסדר החזר שמח יעיל".split(" ");
+var NEG="גרוע איטי מאוכזב נכשל התעכב חושש כאבי בעיה חסרה גרועה פינוי חוב משפט תקלה יקר כועס".split(" ").concat(["לא שולם"]);
+function validId(s){if(s.length!==9)return false;var sum=0;for(var i=0;i<9;i++){var d=+s[i]*((i%2)+1);if(d>9)d-=9;sum+=d}return sum%10===0}
+function anonymize(text){
+  var c={email:0,phone:0,id:0,addr:0};
+  var t=text.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g,function(){c.email++;return "⟦כתובת אימייל⟧"});
+  t=t.replace(/(?:\+972[-\s]?|0)5\d[-\s]?\d{7}/g,function(){c.phone++;return "⟦מספר טלפון⟧"});
+  t=t.replace(/\b\d{9}\b/g,function(m){if(validId(m)){c.id++;return "⟦מספר זהות⟧"}return m});
+  t=t.replace(/(ברחוב|רחוב)\s+[֐-׿]+\s+\d{1,3}/g,function(m,a){c.addr++;return a+" ⟦כתובת⟧"});
+  return {text:t,counts:c,total:c.email+c.phone+c.id+c.addr};
+}
+function stem(w){return (w.length>3&&/^[הוב]/.test(w))?w.slice(1):w}
+function analyze(text){
+  var clean=text.replace(/⟦[^⟧]*⟧/g," ").replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g," ");
+  var toks=(clean.match(/[֐-׿]{2,}|[A-Za-z]{3,}/g)||[]).filter(function(w){return !STOP.has(w)&&w.length>2&&w.indexOf("⟦")<0});
+  var freq={},forms={};
+  toks.forEach(function(w){var k=stem(w);freq[k]=(freq[k]||0)+1;forms[k]=forms[k]||{};forms[k][w]=(forms[k][w]||0)+1});
+  var kw=Object.keys(freq).map(function(k){
+    var best=Object.keys(forms[k]).sort(function(a,b){return forms[k][b]-forms[k][a]})[0];
+    return {w:best,n:freq[k],k:k}}).sort(function(a,b){return b.n-a.n||b.w.length-a.w.length}).slice(0,10);
+  var sents=text.replace(/([.!?])\s+/g,"$1|").split(/\||\n+/).map(function(s){return s.trim()}).filter(function(s){return s.split(/\s+/).length>=6&&!/^(לכבוד|הנדון|טלפון|תאריך|מטופל|בכבוד)/.test(s)});
+  var scored=sents.map(function(s,i){
+    var ws=(s.match(/[֐-׿]{2,}/g)||[]).filter(function(w){return !STOP.has(w)});
+    var sc=ws.reduce(function(a,w){return a+(freq[stem(w)]||0)},0)/Math.pow(Math.max(ws.length,1),0.7);
+    return {s:s,i:i,sc:sc}});
+  var pick=scored.slice().sort(function(a,b){return b.sc-a.sc}).slice(0,Math.min(3,scored.length)).sort(function(a,b){return a.i-b.i}).map(function(x){return x.s});
+  var pos=[],neg=[];
+  POS.forEach(function(w){if(text.indexOf(w)>-1)pos.push(w)});
+  NEG.forEach(function(w){if(text.indexOf(w)>-1)neg.push(w)});
+  var pc=pos.length,nc=neg.length,tot=pc+nc;
+  var sent=tot===0?"neutral":(pc>=nc*2?"positive":(nc>=pc*2?"negative":"mixed"));
+  var score=tot?Math.round(pc/tot*100)/100:0.5;
+  return {summary:pick,keywords:kw,pos:pos,neg:neg,sent:sent,score:score,
+    reason:"נמצאו "+pc+" ביטויים חיוביים ו-"+nc+" שליליים.",
+    words:(text.match(/\S+/g)||[]).length,chars:text.length,sentences:sents.length};
+}
+var SENT_HE={positive:"חיובי",negative:"שלילי",mixed:"מעורב",neutral:"ניטרלי"};
+
+/* ---------- plan: everything is a pure function of simulated time t (minutes) ---------- */
+function rnd(n){var s="",h="0123456789abcdef";for(var i=0;i<n;i++)s+=h[Math.floor(Math.random()*16)];return s}
+function buildPlan(cfg){
+  var B=0.6, size=SIZES[cfg.size];
+  var T4=B+3.95, T5=T4+0.4+size.proc, D0=T5+0.3, END=D0+1.5;
+  var R=[
+   ["vpc","AWS::EC2::VPC","vpc-"+rnd(8),0.05,0.25,1.25,1.5],
+   ["subnets","AWS::EC2::Subnet ×2 (ציבורית ופרטית)","subnet-"+rnd(8),0.25,0.45,1.1,1.25],
+   ["igw","AWS::EC2::InternetGateway","igw-"+rnd(8),0.45,0.65,1.0,1.1],
+   ["routes","AWS::EC2::RouteTable ×2","rtb-"+rnd(8),0.65,0.85,0.7,0.9],
+   ["endpoint","AWS::EC2::VPCEndpoint (S3)","vpce-"+rnd(8),0.85,1.05,0.1,0.3],
+   ["sg","AWS::EC2::SecurityGroup","sg-"+rnd(8),1.05,1.25,0.5,0.7],
+   ["eip","AWS::EC2::EIP","eipalloc-"+rnd(8),1.25,1.35,1.0,1.1],
+   ["nat","AWS::EC2::NatGateway","nat-"+rnd(8),1.35,3.05,0.1,1.0],
+   ["ec2","AWS::EC2::Instance","i-"+rnd(10),3.05,3.95,0,0.5]
+  ].map(function(r){return {key:r[0],type:r[1],id:r[2],cs:B+r[3],ce:B+r[4],ds:D0+r[5],de:D0+r[6]}});
+  var byKey={};R.forEach(function(r){byKey[r.key]=r});
+  var ec2=byKey.ec2, runMin=ec2.de-ec2.cs;
+  var sample=SAMPLES.filter(function(x){return x.id===cfg.sample})[0];
+  var cost={ec2:(PRICE[size.inst]+IP_HOUR)*runMin/60,nat:NAT_HOUR,ai:aiCost(size.mb),other:OTHER};
+  cost.infra=cost.ec2+cost.nat+cost.other;
+  cost.total=cost.infra+cost.ai;
+  return {cfg:cfg,id:rnd(12),inst:size.inst,size:size,file:sample.file,decided:cfg.fail?"fallback":"bedrock",
+    B:B,T4:T4,T5:T5,D0:D0,END:END,res:R,by:byKey,runMin:runMin,cost:cost,
+    steps:[[0,0.1],[0.1,0.25],[0.25,0.35],[0.35,B],[B,T4],[T4,T5],[T5,D0],[D0,END]],
+    result:null};
+}
+function resState(r,t){
+  if(t<r.cs)return "waiting";
+  if(t<r.ce)return "creating";
+  if(t<r.ds)return "active";
+  if(t<r.de)return "deleting";
+  return "deleted";
+}
+function jobStatus(p,t){
+  if(t>=p.END)return "COMPLETED";
+  if(t>=p.T4)return "RUNNING";
+  if(t>=p.B)return "PROVISIONING";
+  if(t>=p.steps[2][0])return "WAITING_FOR_UPLOAD";
+  return "-";
+}
+function infraState(p,t){
+  if(t<p.B)return null;
+  if(t<p.T4)return "CREATE_IN_PROGRESS";
+  if(t<p.D0)return "CREATE_COMPLETE";
+  if(t<p.END)return "DELETE_IN_PROGRESS";
+  return "DELETE_COMPLETE";
+}
+var STL={waiting:"ממתין",creating:"בהקמה",active:"פעיל",deleting:"נמחק עכשיו",deleted:"נמחק"};
+function fmt(t){var s=Math.round(t*60),m=Math.floor(s/60);s=s%60;return m+":"+(s<10?"0":"")+s}
+function typeLabel(id){return TYPES.filter(function(x){return x.id===id})[0].label}
+
+/* ---------- state ---------- */
+var plan=null,t=0,timer=null,running=false,sampleId="legal",typeId="summarize",cache={};
+
+/* ---------- UI build ---------- */
+var editT=null;
+function buildForm(){
+  var seg=$("#samples");
+  SAMPLES.forEach(function(s){
+    var b=document.createElement("button");b.type="button";b.textContent=s.label;b.setAttribute("aria-pressed",s.id===sampleId);b.dataset.id=s.id;
+    b.addEventListener("click",function(){if(running)return;pickSample(s.id)});seg.appendChild(b)});
+  var ty=$("#types");
+  TYPES.forEach(function(x){
+    var l=document.createElement("label");
+    l.innerHTML='<input type="radio" name="type" value="'+x.id+'"'+(x.id===typeId?" checked":"")+'><span><b>'+x.label+' <code>'+x.id+'</code></b><small>'+x.desc+'</small></span>';
+    l.querySelector("input").addEventListener("change",function(){typeId=x.id;if(!running)refreshIdle()});ty.appendChild(l)});
+  $("#txt").addEventListener("input",function(){
+    if(sampleId!=="own"){sampleId="own";syncSeg()}
+    meta();
+    clearTimeout(editT);editT=setTimeout(function(){if(!running)refreshIdle()},350);
+  });
+  ["size","region","mask","fail"].forEach(function(id){$("#"+id).addEventListener("change",function(){if(!running)refreshIdle()})});
+}
+function syncSeg(){[].forEach.call($("#samples").children,function(b){b.setAttribute("aria-pressed",b.dataset.id===sampleId)})}
+function pickSample(id){
+  sampleId=id;syncSeg();
+  var s=SAMPLES.filter(function(x){return x.id===id})[0];
+  $("#txt").value=s.text;meta();
+  if(id==="own"){$("#txt").focus()}
+  refreshIdle();
+}
+function meta(){var v=$("#txt").value;$("#size-meta").textContent=((v.match(/\S+/g)||[]).length)+" מילים, "+v.length+" תווים"}
+function readCfg(){
+  return {text:$("#txt").value.trim(),type:typeId,size:$("#size").value,region:$("#region").value,mask:$("#mask").checked,fail:$("#fail").checked,sample:sampleId};
+}
+function buildSteps(){
+  var ol=$("#steps");ol.innerHTML="";
+  STEPS.forEach(function(s,i){
+    var li=document.createElement("li");li.className="step wait";li.id="st"+i;
+    li.innerHTML='<span class="dot">'+(i+1)+'</span><div><h3>'+s.t+'</h3><p></p></div><span class="tm"></span>';
+    ol.appendChild(li)});
+}
+function nodeBox(id,x,y,w,h,l1,l2){
+  return '<g class="nd" id="n-'+id+'"><rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9"/><text x="'+(x+w/2)+'" y="'+(y+(l2?h/2-3:h/2+5))+'">'+l1+'</text>'+(l2?'<text class="s" x="'+(x+w/2)+'" y="'+(y+h/2+13)+'">'+l2+'</text>':'')+'</g>';
+}
+function buildDiagram(){
+  var s='<svg viewBox="0 0 760 410" role="img" aria-label="תרשים: משתמש, API Gateway, Lambda Orchestrator, Bedrock, DynamoDB, CloudFormation, VPC זמני עם NAT ו-EC2, S3, EventBridge ו-Lambda Teardown">'+
+  '<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>'+
+  '<rect id="vpcbox" class="vpcbox" x="40" y="214" width="470" height="180" rx="14"/>'+
+  '<text class="vpclabel" x="498" y="234">VPC זמני של העבודה</text>'+
+  '<path class="edge" marker-end="url(#ar)" d="M640 49H610"/>'+
+  '<path class="edge" marker-end="url(#ar)" d="M500 49H470"/>'+
+  '<path class="edge" marker-end="url(#ar)" d="M350 49H310"/>'+
+  '<path class="edge" marker-end="url(#ar)" d="M385 74L385 116"/>'+
+  '<path class="edge" marker-end="url(#ar)" d="M430 74L520 116"/>'+
+  '<path class="edge" marker-end="url(#ar)" d="M245 74V214"/>'+
+  '<path class="edge" marker-end="url(#ar)" d="M700 74V172"/>'+
+  '<text class="elabel" x="706" y="128" style="text-anchor:start">PUT</text>'+
+  '<path class="edge" marker-end="url(#ar)" d="M395 262V166"/>'+
+  '<text class="elabel" x="402" y="196" style="text-anchor:start">דרך NAT</text>'+
+  '<path class="edge" marker-end="url(#ar)" d="M320 293H202"/>'+
+  '<path class="edge" marker-end="url(#ar)" marker-start="url(#ar)" d="M470 285L590 205"/>'+
+  '<text class="elabel" x="545" y="262">Endpoint</text>'+
+  '<path class="edge" marker-end="url(#ar)" d="M665 226V252"/>'+
+  '<path class="edge" marker-end="url(#ar)" d="M665 298V324"/>'+
+  '<path class="edge dash" marker-end="url(#ar)" d="M590 347H512"/>'+
+  '<text class="elabel" x="551" y="338">מוחק</text>'+
+  '<text class="elabel" x="245" y="150" style="text-anchor:start" dx="8">בונה</text>'+
+  nodeBox("user",640,24,100,50,"משתמש")+
+  nodeBox("apigw",500,24,110,50,"API Gateway")+
+  nodeBox("orch",350,24,120,50,"Lambda","Orchestrator")+
+  nodeBox("cfn",180,24,130,50,"CloudFormation")+
+  nodeBox("bedrock",330,118,110,46,"Bedrock")+
+  nodeBox("dynamo",470,118,110,46,"DynamoDB")+
+  nodeBox("nat",70,262,130,62,"NAT Gateway","יציאה לאינטרנט")+
+  nodeBox("ec2",320,262,150,62,"EC2","worker.py")+
+  nodeBox("s3",590,174,150,52,"S3","inputs/ ו-results/")+
+  nodeBox("eb",590,252,150,46,"EventBridge")+
+  nodeBox("td",590,324,150,46,"Lambda","Teardown")+
+  '</svg>';
+  $("#diagram").innerHTML=s;
+}
+function buildRes(){
+  var h="";
+  plan.res.forEach(function(r){h+='<div class="rs" id="rs-'+r.key+'"><code title="'+esc(r.type)+'">'+esc(r.id)+'</code><span class="pill p-waiting">ממתין</span></div>'});
+  $("#res").innerHTML=h;
+}
+
+/* ---------- render (pure in t) ---------- */
+function liveCost(p){
+  var c=p.cost;
+  var ec2=(PRICE[p.inst]+IP_HOUR)*Math.max(0,Math.min(t,p.by.ec2.de)-p.by.ec2.cs)/60;
+  var nat=t>=p.by.nat.cs?c.nat:0;
+  var ai=c.ai*Math.max(0,Math.min(1,(t-p.steps[0][1])/(p.steps[1][1]-p.steps[0][1])))*0.02+c.ai*0.98*Math.max(0,Math.min(1,(t-p.T4)/(p.T5-p.T4)));
+  var other=c.other*Math.min(1,t/p.END);
+  return Math.min(c.total,ec2+nat+ai+other);
+}
+function render(){
+  var p=plan,cfg=p.cfg;
+  $("#clk").textContent=fmt(t);
+  $("#prog").style.width=Math.min(100,t/p.END*100)+"%";
+  $("#liveCost").textContent=money(t>=p.END?p.cost.total:liveCost(p));
+  $("#jobid").textContent=t>=p.steps[2][0]?p.id:"-";
+  $("#stat").textContent=jobStatus(p,t);
+  var active={};
+  var created=p.res.filter(function(r){return t>=r.ce}).length, deleted=p.res.filter(function(r){return t>=r.de}).length, N=p.res.length;
+  STEPS.forEach(function(s,i){
+    var st=p.steps[i],cls=t<st[0]?"wait":(t<st[1]?"active":"done");
+    var li=$("#st"+i);li.className="step "+cls;
+    var det="ממתין";
+    if(cls!=="wait"){
+      if(i===0)det="file_name="+p.file+", file_size_mb="+p.size.mb+", processing_type="+cfg.type;
+      if(i===1){
+        if(cls==="active")det="ה-Orchestrator שואל את Bedrock מה השרת הזול שיספיק ל"+typeLabel(cfg.type)+" של קובץ "+p.size.mb+"MB.";
+        else if(p.decided==="bedrock")det="Bedrock ענה "+p.inst+". הקוד בדק מול הרשימה הלבנה, והבחירה עברה. מחיר: "+money(PRICE[p.inst],4)+" לשעה.";
+        else det="Bedrock לא החזיר תשובה תקינה. כללי הגיבוי לפי גודל הקובץ בחרו "+p.inst+", והעבודה ממשיכה.";
+      }
+      if(i===2)det="נשמר ב-DynamoDB עם status=WAITING_FOR_UPLOAD ו-decided_by="+p.decided+". חזרה תשובה 201 עם קישור העלאה חתום ל-15 דקות.";
+      if(i===3)det="PUT ישירות ל-inputs/"+p.id+"/"+p.file+". הקובץ לא עובר דרך ה-API, ולכן אין מגבלת הגודל של API Gateway.";
+      if(i===4)det="EventBridge זיהה קובץ חדש והפעיל שוב את ה-Orchestrator. הסטאק job-"+p.id+": "+(t>=st[1]?"CREATE_COMPLETE, ":"")+created+" מתוך "+N+" משאבים מוכנים"+(t>=p.by.nat.cs&&t<p.by.nat.ce?". ה-NAT Gateway הוא החלק האיטי.":".");
+      if(i===5){
+        var a=t-st[0];
+        det=a<0.2?"מוריד את הקובץ מ-S3 דרך ה-VPC Endpoint":(cfg.mask&&a<0.4?"מתמם מזהים ישראליים (תכונה עתידית)":"שולח ל-Claude Haiku 4.5 ב-Bedrock: "+typeLabel(cfg.type));
+        if(cls==="done")det="העיבוד הסתיים"+(cfg.mask?" אחרי התממה":"")+".";
+      }
+      if(i===6)det=cls==="done"?"נכתב results/"+p.id+"/result.json. EventBridge זיהה אותו והפעיל את Teardown.":"השרת מעלה את התוצאה ל-S3.";
+      if(i===7)det=cls==="done"?"DELETE_COMPLETE. העבודה סומנה COMPLETED, ונשארו 0 משאבים בחשבון.":"נמחקו "+deleted+" מתוך "+N+" משאבים";
+    }
+    li.querySelector("p").textContent=det;
+    li.querySelector(".tm").textContent=cls==="wait"?"":fmt(st[0]);
+    if(cls==="active")STEPS[i].n.forEach(function(n){active[n]=1});
+  });
+  ["user","apigw","orch","cfn","bedrock","dynamo","nat","ec2","s3","eb","td"].forEach(function(n){
+    var g=$("#n-"+n);if(!g)return;
+    var cls="nd";
+    if(active[n])cls+=" on";
+    if(n==="nat"||n==="ec2"){var r=p.by[n];if(t>=r.de)cls+=" gone";else if(t<r.cs)cls+=" off"}
+    g.setAttribute("class",cls);
+  });
+  $("#vpcbox").setAttribute("class","vpcbox"+(active.vpc?" on":"")+(t>=p.by.vpc.de||t<p.by.vpc.cs?" gone":""));
+  p.res.forEach(function(r){var s=resState(r,t),el=$("#rs-"+r.key+" .pill");el.className="pill p-"+s;el.textContent=STL[s]});
+  renderCost();
+  var kOut=(t>=p.steps[5][1]?1:0)+"|"+p.id;
+  if(kOut!==cache.out){cache.out=kOut;renderOut()}
+  var kJ=jobStatus(p,t)+"|"+infraState(p,t)+"|"+p.id+"|"+(t>=p.steps[6][1]?1:0);
+  if(kJ!==cache.json){cache.json=kJ;renderJson()}
+  var kRep=p.res.map(function(r){return resState(r,t)}).join(",")+"|"+p.id+"|"+(t>=p.END?1:0);
+  if(kRep!==cache.rep){cache.rep=kRep;renderReport()}
+}
+function row(a,b){return '<div class="row"><span>'+a+'</span><span class="num">'+b+'</span></div>'}
+function renderCost(){
+  var p=plan,done=t>=p.END,c=p.cost;
+  var always=(PRICE[p.inst]+IP_HOUR+NAT_HOUR)*730;
+  $("#cost").innerHTML=
+    row("שרת "+p.inst+" וכתובת IP ("+p.runMin.toFixed(1)+" דקות)",money(c.ec2,4))+
+    row("NAT Gateway, שעה מלאה מינימום",money(c.nat,3))+
+    row("עיבוד AI, Claude Haiku 4.5",money(c.ai,4))+
+    row("Lambda, API Gateway, DynamoDB, S3",money(c.other,3))+
+    '<div class="row tot"><span>'+(done?"סה\"כ לעבודה":"עד עכשיו")+'</span><span class="num">'+(done?money(c.total,3):$("#liveCost").textContent)+'</span></div>';
+  $("#cost-note").innerHTML="ב-API השדה <code>estimated_cost_usd</code> מחזיר רק את עלות התשתית ("+money(c.infra,3)+"), בלי ה-AI. אותו שרת עם NAT שדלוק כל החודש עולה בערך <b class=\"num\">"+money(always,0)+"</b>. ה-NAT נחשב כשעה מלאה גם בעבודה של כמה דקות, ולכן הוא רוב העלות.";
+}
+function resultValue(p){
+  var a=p.result.an,ty=p.cfg.type;
+  if(ty==="summarize")return a.summary.length?a.summary.map(function(s){return "- "+s}).join("\n"):"- הטקסט קצר מדי לסיכום";
+  if(ty==="sentiment")return JSON.stringify({sentiment:a.sent,score:a.score,reason:a.reason});
+  return JSON.stringify(a.keywords.map(function(k){return k.w}));
+}
+function renderOut(){
+  var p=plan,el=$("#p-out");
+  if(t<p.steps[5][1]){el.innerHTML='<div class="placeholder">התוצאה תופיע כשהשרת יסיים לעבד את הקובץ.</div>';return}
+  var r=p.result,ty=p.cfg.type,a=r.an,h="";
+  if(p.cfg.mask&&r.mask){
+    h+='<h4>מה נשלח למודל אחרי התממה ('+r.mask.total+' מזהים)</h4><div class="txt">'+esc(r.mask.text).replace(/⟦([^⟧]+)⟧/g,'<span class="mask">$1</span>').replace(/\n/g,"<br>")+'</div>';
+  }
+  if(ty==="summarize"){
+    h+='<h4>סיכום</h4><div class="txt">'+(a.summary.length?'<ul class="list">'+a.summary.map(function(s){return "<li>"+esc(s)+"</li>"}).join("")+"</ul>":"הטקסט קצר מדי לסיכום.")+'</div>';
+  }else if(ty==="sentiment"){
+    var pc=a.pos.length,nc=a.neg.length,tot=pc+nc;
+    h+='<h4>ניתוח רגשות</h4><div class="sent"><span class="big">'+SENT_HE[a.sent]+'</span><div class="sbar" title="חיובי מול שלילי"><i style="width:'+Math.round(a.score*100)+'%"></i></div><span class="hint num">score '+a.score.toFixed(2)+'</span></div>';
+    h+='<h4>המילים שהשפיעו</h4><div class="kw">'+a.pos.map(function(w){return '<span style="background:var(--good-soft)">'+esc(w)+'</span>'}).join("")+a.neg.map(function(w){return '<span style="background:var(--crit-soft)">'+esc(w)+'</span>'}).join("")+(tot?"":"<span>לא נמצאו</span>")+'</div>';
+  }else{
+    h+='<h4>מילות מפתח</h4><div class="kw">'+a.keywords.map(function(k){return '<span>'+esc(k.w)+'<b>×'+k.n+'</b></span>'}).join("")+'</div>';
+  }
+  h+='<h4>השדה result בקובץ התוצאה</h4><pre>'+esc(resultValue(p))+'</pre>';
+  h+='<p class="note">בהדגמה הפלט מחושב בדפדפן בכללים פשוטים. במערכת האמיתית העיבוד נעשה ב-Claude Haiku 4.5 על השרת הזמני, עד 50,000 תווים לקובץ.</p>';
+  el.innerHTML=h;
+}
+function renderJson(){
+  var p=plan,cfg=p.cfg,st=jobStatus(p,t),inf=infraState(p,t),a=p.result.an;
+  var req={file_name:p.file,file_size_mb:p.size.mb,processing_type:cfg.type};
+  var created={job_id:p.id,status:"WAITING_FOR_UPLOAD",instance_type:p.inst,decided_by:p.decided,upload_url:"https://s3.us-east-1.amazonaws.com/...",upload_method:"PUT",upload_expires_in_seconds:900};
+  var h='<div class="jl">1. בקשה: POST /jobs</div><pre>'+esc(JSON.stringify(req,null,2))+'</pre>';
+  h+='<div class="jl">2. תשובה (201)</div><pre>'+esc(JSON.stringify(created,null,2))+'</pre>';
+  var g;
+  if(st==="-"){g=null}
+  else if(st==="COMPLETED"){g={job_id:p.id,status:"COMPLETED",instance_type:p.inst,result_url:"https://s3.us-east-1.amazonaws.com/...",duration_minutes:+t.toFixed(1),estimated_cost_usd:+p.cost.infra.toFixed(3)}}
+  else{g={job_id:p.id,status:st,file_name:p.file,processing_type:cfg.type,instance_type:p.inst,decided_by:p.decided};if(inf)g.infrastructure=inf}
+  h+='<div class="jl">3. מצב העבודה עכשיו: GET /jobs/'+p.id+'</div><pre>'+(g?esc(JSON.stringify(g,null,2)):"// העבודה עוד לא נוצרה")+'</pre>';
+  if(t>=p.steps[6][1]){
+    var inTok=Math.round(a.chars/4)+150,outTok=cfg.type==="keywords"?60:(cfg.type==="sentiment"?50:160);
+    var rj={job_id:p.id,processing_type:cfg.type,input_key:"inputs/"+p.id+"/"+p.file,input_characters:a.chars,input_words:a.words,truncated:a.chars>MAXCHARS,model_id:MODEL,instance_type:p.inst,tokens:{inputTokens:inTok,outputTokens:outTok,totalTokens:inTok+outTok},processing_seconds:4.2,result:resultValue(p)};
+    h+='<div class="jl">4. קובץ התוצאה: results/'+p.id+'/result.json</div><pre>'+esc(JSON.stringify(rj,null,2))+'</pre>';
+  }else{
+    h+='<div class="jl">4. קובץ התוצאה</div><pre>// ייווצר כשהשרת יסיים לעבד</pre>';
+  }
+  h+='<p class="note">השדות, שמות הסטטוסים וקודי התשובה זהים לסעיף הקלט והפלט במסמך הפרויקט. בהדגמה הטקסט קצר, וגודל הקובץ מדומה כדי להראות את בחירת השרת.</p>';
+  $("#p-json").innerHTML=h;
+}
+function renderReport(){
+  var p=plan,left=p.res.filter(function(r){return t<r.de}).length,done=t>=p.END;
+  var h='<p class="hint" style="margin-bottom:8px">הסטאק <code>job-'+p.id+'</code>, משאב אחרי משאב:</p><div class="tw"><table><thead><tr><th>משאב</th><th>סוג</th><th>נוצר</th><th>נמחק</th><th>מצב</th></tr></thead><tbody>';
+  p.res.forEach(function(r){
+    var s=resState(r,t);
+    h+='<tr><td><code>'+esc(r.id)+'</code></td><td class="hint"><code>'+esc(r.type)+'</code></td><td class="num">'+(t>=r.ce?fmt(r.ce):"-")+'</td><td class="num">'+(t>=r.de?fmt(r.de):"-")+'</td><td><span class="pill p-'+s+'">'+STL[s]+'</span></td></tr>'});
+  h+='</tbody></table></div>';
+  h+='<p style="margin-top:12px"><b>'+(done?"נבדק: נשארו 0 משאבים בחשבון.":"משאבים שעדיין קיימים: "+left)+'</b></p>';
+  h+='<p class="note">בגרסת Enterprise הדוח יכלול אירועי CloudTrail וחתימה דיגיטלית, כדי שהארגון יוכל להציג אותו ללקוח או לרגולטור. זה עדיין לא נבנה, והדוח כאן הוא הדגמה.</p>';
+  $("#p-rep").innerHTML=h;
+}
+
+/* ---------- run control ---------- */
+function setup(cfg){
+  cache={};
+  plan=buildPlan(cfg);
+  var m=cfg.mask?anonymize(cfg.text):null;
+  plan.result={mask:m,an:analyze(m?m.text:cfg.text)};
+  buildRes();
+}
+function refreshIdle(){
+  setup(readCfg());t=plan.END;render();
+  $("#run-hint").textContent="הריצה למטה מציגה את התוצאה הסופית. לחץ כדי לראות אותה שלב אחרי שלב.";
+}
+function lock(on){
+  running=on;
+  ["txt","size","region","mask","fail"].forEach(function(id){$("#"+id).disabled=on});
+  [].forEach.call(document.querySelectorAll("#types input"),function(i){i.disabled=on});
+  [].forEach.call($("#samples").children,function(b){b.disabled=on});
+  $("#run").disabled=on;$("#run").textContent=on?"רץ...":"הרץ שוב";
+}
+function run(){
+  if(running)return;
+  var cfg=readCfg();
+  if(cfg.text.length<20){$("#run-hint").textContent="הטקסט קצר מדי. כתוב לפחות משפט אחד או בחר דוגמה.";$("#txt").focus();return}
+  setup(cfg);t=0;lock(true);render();
+  $("#run-hint").textContent="הריצה בעיצומה. אפשר לשנות את המהירות בכל רגע.";
+  document.getElementById("steps").scrollIntoView({behavior:"smooth",block:"center"});
+  var last=performance.now();
+  clearInterval(timer);
+  timer=setInterval(function(){
+    var now=performance.now(),dt=now-last;last=now;
+    t+=dt/(+$("#speed").value);
+    if(t>=plan.END){t=plan.END;clearInterval(timer);lock(false);$("#run-hint").textContent="העבודה הסתיימה והסביבה נמחקה. אפשר לשנות הגדרות ולהריץ שוב."}
+    render();
+  },60);
+}
+
+/* ---------- tabs ---------- */
+function tabs(){
+  var ids=["out","json","rep"];
+  ids.forEach(function(id){
+    $("#t-"+id).addEventListener("click",function(){
+      ids.forEach(function(o){var on=o===id;$("#t-"+o).setAttribute("aria-selected",on);$("#p-"+o).hidden=!on});
+    });
+  });
+}
+
+/* ---------- calculator ---------- */
+function calc(){
+  var inst=$("#c-inst").value,dur=+$("#c-dur").value,jobs=+$("#c-jobs").value,nat=$("#c-nat").checked,aiOn=$("#c-ai").checked;
+  $("#v-dur").textContent=dur+" דקות";$("#v-jobs").textContent=jobs+" ביום";
+  var rate=PRICE[inst]+IP_HOUR;
+  var ai=aiOn?aiCost(1):0;
+  var perInfra=rate*dur/60+NAT_HOUR*Math.ceil((dur+5)/60)+OTHER;
+  var per=perInfra+ai;
+  var server=rate*730+(nat?NAT_HOUR*730:0);
+  var month=per*jobs*30, always=server+ai*jobs*30;
+  var be=server/(perInfra*30);
+  var save=Math.round((1-month/always)*100);
+  $("#kpis").innerHTML=
+   '<div class="kpi"><small>עלות לעבודה</small><b>'+money(per,3)+'</b></div>'+
+   '<div class="kpi"><small>לחודש, סביבה לכל עבודה</small><b>'+money(month,2)+'</b></div>'+
+   '<div class="kpi"><small>לחודש, שרת קבוע</small><b>'+money(always,2)+'</b></div>';
+  var good=jobs<be;
+  var v=$("#verdict");v.className="verdict "+(good?"good":"warn");
+  v.innerHTML=good?
+    "עם <b>"+jobs+"</b> עבודות ביום, סביבה לכל עבודה עולה <b class=\"num\">"+money(month,2)+"</b> לחודש לעומת <b class=\"num\">"+money(always,2)+"</b> בשרת קבוע, חיסכון של <b>"+save+"%</b>. נקודת האיזון היא בערך <b>"+Math.round(be)+"</b> עבודות ביום.":
+    "עם <b>"+jobs+"</b> עבודות ביום, שרת קבוע זול יותר: <b class=\"num\">"+money(always,2)+"</b> לחודש לעומת <b class=\"num\">"+money(month,2)+"</b>. מעל בערך <b>"+Math.round(be)+"</b> עבודות ביום אין סיבה לבנות סביבה לכל עבודה.";
+  var W=640,H=250,L=56,Rm=14,T=14,Bm=36;
+  var xmax=Math.max(20,Math.min(240,Math.ceil(be*1.7/20)*20));
+  var yA=server+ai*xmax*30,yO=per*xmax*30,ymax=Math.max(yA,yO)*1.08;
+  var step=ymax>200?100:(ymax>40?20:5),ym=Math.ceil(ymax/step)*step;
+  var X=function(x){return L+(x/xmax)*(W-L-Rm)},Y=function(y){return T+(1-y/ym)*(H-T-Bm)};
+  var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="עלות חודשית לפי מספר עבודות ביום">';
+  for(var i=0;i<=4;i++){var yv=ym*i/4;s+='<line class="grid" x1="'+L+'" x2="'+(W-Rm)+'" y1="'+Y(yv)+'" y2="'+Y(yv)+'"/><text x="'+(L-8)+'" y="'+(Y(yv)+4)+'" text-anchor="end">$'+Math.round(yv)+'</text>'}
+  for(var j=0;j<=4;j++){var xv=xmax*j/4;s+='<text x="'+X(xv)+'" y="'+(H-12)+'" text-anchor="middle">'+Math.round(xv)+'</text>'}
+  s+='<text x="'+(W/2)+'" y="'+H+'" text-anchor="middle">עבודות ביום</text>';
+  s+='<line class="l2" x1="'+X(0)+'" x2="'+X(xmax)+'" y1="'+Y(server)+'" y2="'+Y(yA)+'"/>';
+  s+='<line class="l1" x1="'+X(0)+'" x2="'+X(xmax)+'" y1="'+Y(0)+'" y2="'+Y(yO)+'"/>';
+  if(be<=xmax){var yb=server+ai*be*30;s+='<circle cx="'+X(be)+'" cy="'+Y(yb)+'" r="5" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/><text x="'+X(be)+'" y="'+(Y(yb)-10)+'" text-anchor="middle" style="fill:var(--ink);font-weight:700">איזון: '+Math.round(be)+'</text>'}
+  s+='<circle cx="'+X(Math.min(jobs,xmax))+'" cy="'+Y(Math.min(month,ym))+'" r="6" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>';
+  s+='</svg>';
+  $("#chart").innerHTML=s;
+}
+
+/* ---------- init ---------- */
+buildForm();buildSteps();buildDiagram();tabs();
+["c-inst","c-dur","c-jobs","c-nat","c-ai"].forEach(function(id){$("#"+id).addEventListener("input",calc);$("#"+id).addEventListener("change",calc)});
+$("#run").addEventListener("click",run);
+$("#txt").value=SAMPLES[0].text;meta();
+refreshIdle();calc();
+})();
+</script>
+</body>
+</html>
